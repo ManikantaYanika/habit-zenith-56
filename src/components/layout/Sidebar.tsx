@@ -8,7 +8,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,8 @@ const navItems = [
   { path: "/weekly", icon: CalendarDays, label: "Weekly" },
   { path: "/monthly", icon: FolderKanban, label: "Monthly" },
   { path: "/goals", icon: Target, label: "Goals" },
+  { path: "/categories", icon: FolderKanban, label: "Categories" },
+  { path: "/reminders", icon: Bell, label: "Reminders" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -49,7 +52,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map(({ path, icon: Icon, label }) => {
           const isActive = location.pathname === path;
           

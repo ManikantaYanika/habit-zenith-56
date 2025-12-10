@@ -259,4 +259,36 @@
   .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
   .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
   .stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
+  /* Confetti animation */
+  @keyframes confetti {
+    0% {
+      transform: translateY(0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-confetti {
+    animation: confetti 2s ease-out forwards;
+  }
+
+  /* Celebration pulse */
+  @keyframes celebration {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 hsl(var(--success) / 0.4);
+    }
+    50% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 10px hsl(var(--success) / 0);
+    }
+  }
+
+  .animate-celebration {
+    animation: celebration 0.6s ease-in-out;
+  }
 }

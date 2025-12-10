@@ -10,6 +10,8 @@ import Daily from "./pages/Daily";
 import Weekly from "./pages/Weekly";
 import Monthly from "./pages/Monthly";
 import Goals from "./pages/Goals";
+import Categories from "./pages/Categories";
+import Reminders from "./pages/Reminders";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +41,16 @@ function AppRoutes() {
       <Route path="/goals" element={
         <AppLayout username={settings.username}>
           <Goals />
+        </AppLayout>
+      } />
+      <Route path="/categories" element={
+        <AppLayout username={settings.username}>
+          <Categories />
+        </AppLayout>
+      } />
+      <Route path="/reminders" element={
+        <AppLayout username={settings.username}>
+          <Reminders />
         </AppLayout>
       } />
       <Route path="/settings" element={

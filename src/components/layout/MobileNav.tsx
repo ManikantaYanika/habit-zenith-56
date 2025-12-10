@@ -4,15 +4,16 @@ import {
   Calendar, 
   CalendarDays, 
   Target, 
-  Settings 
+  Settings,
+  Bell 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: LayoutDashboard, label: "Home" },
   { path: "/daily", icon: Calendar, label: "Daily" },
-  { path: "/weekly", icon: CalendarDays, label: "Weekly" },
   { path: "/goals", icon: Target, label: "Goals" },
+  { path: "/reminders", icon: Bell, label: "Remind" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
