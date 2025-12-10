@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { ProgressRing } from "@/components/habits/ProgressRing";
 import { HabitCard } from "@/components/habits/HabitCard";
 import { StatsCard } from "@/components/habits/StatsCard";
 import { WeeklyChart } from "@/components/habits/WeeklyChart";
 import { NotesPanel } from "@/components/habits/NotesPanel";
 import { AddHabitModal } from "@/components/habits/AddHabitModal";
+import { Confetti } from "@/components/habits/Confetti";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useHabits } from "@/hooks/useHabits";
-import { CheckCircle2, Flame, Target, TrendingUp } from "lucide-react";
+import { CheckCircle2, Flame, Target, TrendingUp, Award } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Dashboard() {
+  const [showConfetti, setShowConfetti] = useState(false);
   const { 
     habits, 
     goals,
@@ -24,14 +27,37 @@ export default function Dashboard() {
   const progress = getTodayProgress();
   const weeklyData = getWeeklyData();
   const totalStreak = getTotalStreak();
-  const goalsProgress = goals.reduce((acc, g) => acc + (g.currentValue / g.targetValue) * 100, 0) / goals.length;
+  const goalsProgress = goals.length > 0 
+    ? goals.reduce((acc, g) => acc + (g.currentValue / g.targetValue) * 100, 0) / goals.length
+    : 0;
 
   const todayHabits = habits.filter(h => 
     h.targetDays.includes(new Date().getDay())
   );
 
+  const handleToggleHabit = (habitId: string) => {
+    const habit = habits.find(h => h.id === habitId);
+    const wasCompleted = habit?.completedDates.includes(today);
+    
+    toggleHabit(habitId);
+    
+    // Show confetti when completing a habit (not when uncompleting)
+    if (!wasCompleted) {
+      const newCompletedCount = todayHabits.filter(h => 
+        h.id === habitId || h.completedDates.includes(today)
+      ).length;
+      
+      // Show confetti for completing all habits or every 3rd completion
+      if (newCompletedCount === todayHabits.length || newCompletedCount % 3 === 0) {
+        setShowConfetti(true);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 lg:space-y-8 max-w-7xl mx-auto">
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
+      
       {/* Progress Hero */}
       <section className="grid gap-6 lg:grid-cols-[1fr_2fr]">
         {/* Progress Ring Card */}
@@ -47,6 +73,12 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">
               {format(new Date(), "EEEE, MMMM d")}
             </p>
+            {progress.percentage === 100 && (
+              <div className="flex items-center gap-2 text-success">
+                <Award className="w-5 h-5" />
+                <span className="font-medium">Perfect day!</span>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -103,7 +135,7 @@ export default function Dashboard() {
                 <HabitCard
                   key={habit.id}
                   habit={habit}
-                  onToggle={toggleHabit}
+                  onToggle={handleToggleHabit}
                 />
               ))
             )}

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Habit } from "@/types/habit";
 import { Card } from "@/components/ui/card";
 import { Check, Flame } from "lucide-react";
@@ -10,17 +11,27 @@ interface HabitCardProps {
 }
 
 export function HabitCard({ habit, onToggle }: HabitCardProps) {
+  const [justCompleted, setJustCompleted] = useState(false);
   const today = format(new Date(), 'yyyy-MM-dd');
   const isCompleted = habit.completedDates.includes(today);
+
+  const handleToggle = () => {
+    if (!isCompleted) {
+      setJustCompleted(true);
+      setTimeout(() => setJustCompleted(false), 600);
+    }
+    onToggle(habit.id);
+  };
 
   return (
     <Card
       variant="interactive"
       className={cn(
         "p-4 flex items-center gap-4 group",
-        isCompleted && "bg-success/5 border-success/30"
+        isCompleted && "bg-success/5 border-success/30",
+        justCompleted && "animate-celebration"
       )}
-      onClick={() => onToggle(habit.id)}
+      onClick={handleToggle}
     >
       {/* Checkbox */}
       <button
