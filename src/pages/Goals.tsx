@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GoalCard } from "@/components/habits/GoalCard";
-import { useHabits } from "@/hooks/useHabits";
+import { useGoals } from "@/hooks/useGoals";
 import { Plus, Target, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Category, categoryIcons } from "@/types/habit";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const categories: Category[] = ['health', 'finance', 'work', 'learning'];
 
@@ -20,41 +21,74 @@ const categoryColorMap: Record<Category, string> = {
 };
 
 export default function Goals() {
-  const { goals, addGoal, updateGoalProgress } = useHabits();
+  const { goals, isLoading, addGoal, updateGoalProgress } = useGoals();
   const [open, setOpen] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: '',
     description: '',
     category: 'health' as Category,
-    targetValue: 100,
+    target_value: 100,
     unit: '',
     deadline: '',
   });
 
   const overallProgress = goals.length > 0
-    ? Math.round(goals.reduce((acc, g) => acc + (g.currentValue / g.targetValue) * 100, 0) / goals.length)
+    ? Math.round(goals.reduce((acc, g) => acc + (g.current_value / g.target_value) * 100, 0) / goals.length)
     : 0;
 
-  const completedGoals = goals.filter(g => g.currentValue >= g.targetValue).length;
+  const completedGoals = goals.filter(g => g.current_value >= g.target_value).length;
 
   const handleAddGoal = () => {
     if (!newGoal.name.trim()) return;
     
     addGoal({
-      ...newGoal,
+      name: newGoal.name,
+      description: newGoal.description || undefined,
+      category: newGoal.category,
+      target_value: newGoal.target_value,
+      unit: newGoal.unit || 'times',
       color: categoryColorMap[newGoal.category],
+      deadline: newGoal.deadline || undefined
     });
     
     setNewGoal({
       name: '',
       description: '',
       category: 'health',
-      targetValue: 100,
+      target_value: 100,
       unit: '',
       deadline: '',
     });
     setOpen(false);
   };
+
+  // Transform goals for GoalCard component
+  const transformedGoals = goals.map(g => ({
+    id: g.id,
+    name: g.name,
+    description: g.description || '',
+    category: g.category as Category,
+    targetValue: g.target_value,
+    currentValue: g.current_value,
+    unit: g.unit,
+    color: g.color,
+    deadline: g.deadline || '',
+    createdAt: g.created_at
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <Skeleton className="h-16 w-full" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -107,8 +141,8 @@ export default function Goals() {
                   <Input
                     type="number"
                     placeholder="100"
-                    value={newGoal.targetValue}
-                    onChange={(e) => setNewGoal(prev => ({ ...prev, targetValue: Number(e.target.value) }))}
+                    value={newGoal.target_value}
+                    onChange={(e) => setNewGoal(prev => ({ ...prev, target_value: Number(e.target.value) }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -221,7 +255,7 @@ export default function Goals() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {goals.map(goal => (
+            {transformedGoals.map(goal => (
               <GoalCard key={goal.id} goal={goal} />
             ))}
           </div>

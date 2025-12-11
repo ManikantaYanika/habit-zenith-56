@@ -7,44 +7,52 @@ import { NotesPanel } from "@/components/habits/NotesPanel";
 import { AddHabitModal } from "@/components/habits/AddHabitModal";
 import { Confetti } from "@/components/habits/Confetti";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useHabits } from "@/hooks/useHabits";
+import { useHabitsData } from "@/hooks/useHabitsData";
+import { useGoals } from "@/hooks/useGoals";
+import { useNotes } from "@/hooks/useNotes";
 import { CheckCircle2, Flame, Target, TrendingUp, Award } from "lucide-react";
 import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Category } from "@/types/habit";
 
 export default function Dashboard() {
   const [showConfetti, setShowConfetti] = useState(false);
   const { 
     habits, 
-    goals,
-    toggleHabit, 
+    isLoading: habitsLoading,
     addHabit,
+    toggleCompletion,
+    isCompleted,
+    getStreak,
     getTodayProgress, 
-    getWeeklyData, 
-    getTotalStreak,
-    today 
-  } = useHabits();
+    getWeeklyData
+  } = useHabitsData();
+  const { goals, isLoading: goalsLoading } = useGoals();
+  const { saveNote, getTodayNote } = useNotes();
 
+  const today = format(new Date(), 'yyyy-MM-dd');
   const progress = getTodayProgress();
   const weeklyData = getWeeklyData();
-  const totalStreak = getTotalStreak();
+  
+  const totalStreak = habits.reduce((sum, h) => sum + getStreak(h.id), 0);
+  
   const goalsProgress = goals.length > 0 
-    ? goals.reduce((acc, g) => acc + (g.currentValue / g.targetValue) * 100, 0) / goals.length
+    ? goals.reduce((acc, g) => acc + (g.current_value / g.target_value) * 100, 0) / goals.length
     : 0;
 
   const todayHabits = habits.filter(h => 
-    h.targetDays.includes(new Date().getDay())
+    h.target_days.includes(new Date().getDay())
   );
 
   const handleToggleHabit = (habitId: string) => {
-    const habit = habits.find(h => h.id === habitId);
-    const wasCompleted = habit?.completedDates.includes(today);
+    const wasCompleted = isCompleted(habitId, today);
     
-    toggleHabit(habitId);
+    toggleCompletion({ habitId, date: today });
     
     // Show confetti when completing a habit (not when uncompleting)
     if (!wasCompleted) {
       const newCompletedCount = todayHabits.filter(h => 
-        h.id === habitId || h.completedDates.includes(today)
+        h.id === habitId || isCompleted(h.id, today)
       ).length;
       
       // Show confetti for completing all habits or every 3rd completion
@@ -53,6 +61,51 @@ export default function Dashboard() {
       }
     }
   };
+
+  const handleSaveNote = (note: string, mood?: string) => {
+    saveNote({ date: today, note, mood });
+  };
+
+  const currentNote = getTodayNote();
+
+  // Transform data for components
+  const transformedHabits = todayHabits.map(h => ({
+    id: h.id,
+    name: h.name,
+    icon: h.icon,
+    category: h.category as Category,
+    targetDays: h.target_days,
+    frequency: h.frequency as 'daily' | 'weekly',
+    streak: getStreak(h.id),
+    bestStreak: getStreak(h.id),
+    completedDates: isCompleted(h.id, today) ? [today] : [],
+    createdAt: h.created_at,
+    color: 'hsl(var(--primary))'
+  }));
+
+  const chartData = weeklyData.map(d => ({
+    date: d.date,
+    dayName: d.day,
+    completed: d.completed,
+    total: d.total,
+    percentage: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0
+  }));
+
+  if (habitsLoading || goalsLoading) {
+    return (
+      <div className="space-y-6 lg:space-y-8 max-w-7xl mx-auto">
+        <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+          <Skeleton className="h-64" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 lg:space-y-8 max-w-7xl mx-auto">
@@ -90,7 +143,6 @@ export default function Dashboard() {
             subtitle={`out of ${progress.total} habits`}
             icon={CheckCircle2}
             variant="success"
-            trend={{ value: 12, isPositive: true }}
           />
           <StatsCard
             title="Total Streak"
@@ -108,10 +160,9 @@ export default function Dashboard() {
           />
           <StatsCard
             title="Weekly Average"
-            value={`${Math.round(weeklyData.reduce((a, d) => a + d.percentage, 0) / 7)}%`}
+            value={`${Math.round(chartData.reduce((a, d) => a + d.percentage, 0) / 7)}%`}
             subtitle="completion rate"
             icon={TrendingUp}
-            trend={{ value: 8, isPositive: true }}
           />
         </div>
       </section>
@@ -122,16 +173,16 @@ export default function Dashboard() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Today's Habits</h2>
-            <AddHabitModal onAdd={addHabit} />
+            <AddHabitModal onAdd={(habit) => addHabit(habit)} />
           </div>
           
           <div className="space-y-3 stagger-children">
-            {todayHabits.length === 0 ? (
+            {transformedHabits.length === 0 ? (
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">No habits for today. Create your first habit!</p>
               </Card>
             ) : (
-              todayHabits.map(habit => (
+              transformedHabits.map(habit => (
                 <HabitCard
                   key={habit.id}
                   habit={habit}
@@ -150,12 +201,17 @@ export default function Dashboard() {
               <CardTitle className="text-base">This Week</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <WeeklyChart data={weeklyData} />
+              <WeeklyChart data={chartData} />
             </CardContent>
           </Card>
 
           {/* Quick Notes */}
-          <NotesPanel date={today} />
+          <NotesPanel 
+            date={today} 
+            initialNote={currentNote?.note || ''}
+            mood={currentNote?.mood as 'great' | 'good' | 'okay' | 'bad' | undefined}
+            onSave={handleSaveNote}
+          />
         </div>
       </section>
     </div>

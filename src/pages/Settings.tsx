@@ -14,16 +14,39 @@ import {
   Trash2, 
   Clock,
   Palette,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  LogOut,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { useHabitsData } from "@/hooks/useHabitsData";
+import { useGoals } from "@/hooks/useGoals";
+import { useNotes } from "@/hooks/useNotes";
+import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Settings() {
-  const [username, setUsername] = useState("Alex");
+  const { signOut } = useAuth();
+  const { profile, isLoading, updateProfile, isUpdating } = useProfile();
+  const { habits, completions } = useHabitsData();
+  const { goals } = useGoals();
+  const { notes } = useNotes();
+  const navigate = useNavigate();
+  
+  const [username, setUsername] = useState("");
   const [isDark, setIsDark] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [reminderTime, setReminderTime] = useState("08:00");
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (profile) {
+      setUsername(profile.username);
+      setIsDark(profile.theme === 'dark');
+    }
+  }, [profile]);
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -33,18 +56,66 @@ export default function Settings() {
   const toggleTheme = (checked: boolean) => {
     setIsDark(checked);
     document.documentElement.classList.toggle('dark', checked);
+    updateProfile({ theme: checked ? 'dark' : 'light' });
     toast({
       title: `${checked ? 'Dark' : 'Light'} mode enabled`,
       description: "Theme preference saved",
     });
   };
 
+  const handleSaveUsername = () => {
+    if (username.trim()) {
+      updateProfile({ username: username.trim() });
+      toast({
+        title: "Profile updated",
+        description: "Your username has been saved",
+      });
+    }
+  };
+
   const handleExport = () => {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      habits: habits,
+      completions: completions,
+      goals: goals,
+      notes: notes
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `habitflow-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
     toast({
-      title: "Export started",
-      description: "Your data is being prepared for download...",
+      title: "Export complete",
+      description: "Your data has been downloaded",
     });
   };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+    toast({
+      title: "Logged out",
+      description: "See you next time!",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -76,19 +147,25 @@ export default function Settings() {
               </AvatarFallback>
             </Avatar>
             <div className="space-y-1">
-              <Button variant="outline" size="sm">Change Avatar</Button>
-              <p className="text-xs text-muted-foreground">JPG, PNG. Max 2MB</p>
+              <p className="text-sm text-muted-foreground">
+                {profile?.user_id ? `User ID: ${profile.user_id.slice(0, 8)}...` : ''}
+              </p>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="username">Display Name</Label>
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Your name"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Your name"
+              />
+              <Button onClick={handleSaveUsername} disabled={isUpdating}>
+                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -169,7 +246,7 @@ export default function Settings() {
             <Download className="w-5 h-5" />
             Data Management
           </CardTitle>
-          <CardDescription>Export or delete your data</CardDescription>
+          <CardDescription>Export or manage your data</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -177,14 +254,27 @@ export default function Settings() {
               <Download className="w-4 h-4" />
               Export Data
             </Button>
-            <Button variant="outline" className="gap-2 text-destructive hover:text-destructive">
-              <Trash2 className="w-4 h-4" />
-              Delete All Data
-            </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             Export your habits, goals, and notes as a JSON file. This data can be used for backup purposes.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Account */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LogOut className="w-5 h-5" />
+            Account
+          </CardTitle>
+          <CardDescription>Manage your account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" className="gap-2" onClick={handleLogout}>
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </Button>
         </CardContent>
       </Card>
 
@@ -196,10 +286,6 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground">
               Build better habits, one day at a time.
             </p>
-            <div className="flex items-center justify-center gap-4 pt-2">
-              <Button variant="ghost" size="sm">Privacy Policy</Button>
-              <Button variant="ghost" size="sm">Terms of Service</Button>
-            </div>
           </div>
         </CardContent>
       </Card>
