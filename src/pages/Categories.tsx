@@ -2,23 +2,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CategoryBadge } from "@/components/habits/CategoryBadge";
 import { Progress } from "@/components/ui/progress";
-import { useHabits } from "@/hooks/useHabits";
+import { useHabitsData } from "@/hooks/useHabitsData";
 import { Category, categoryIcons } from "@/types/habit";
 import { FolderKanban, Plus, TrendingUp, Target, Flame } from "lucide-react";
+import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Categories() {
-  const { habits } = useHabits();
+  const { habits, isCompleted, getStreak, getBestStreak, isLoading } = useHabitsData();
 
   const categories: Category[] = ['health', 'finance', 'work', 'learning'];
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   const getCategoryStats = (category: Category) => {
     const catHabits = habits.filter(h => h.category === category);
-    const totalStreak = catHabits.reduce((acc, h) => acc + h.streak, 0);
+    const totalStreak = catHabits.reduce((acc, h) => acc + getStreak(h.id), 0);
     const avgStreak = catHabits.length > 0 ? Math.round(totalStreak / catHabits.length) : 0;
-    const bestStreak = Math.max(...catHabits.map(h => h.bestStreak), 0);
-    const completedToday = catHabits.filter(h => 
-      h.completedDates.includes(new Date().toISOString().split('T')[0])
-    ).length;
+    const bestStreak = catHabits.length > 0 
+      ? Math.max(...catHabits.map(h => getBestStreak(h.id)))
+      : 0;
+    const completedToday = catHabits.filter(h => isCompleted(h.id, today)).length;
     
     return {
       count: catHabits.length,
@@ -26,7 +29,10 @@ export default function Categories() {
       avgStreak,
       bestStreak,
       completedToday,
-      habits: catHabits,
+      habits: catHabits.map(h => ({
+        ...h,
+        streak: getStreak(h.id)
+      })),
     };
   };
 
@@ -43,6 +49,20 @@ export default function Categories() {
     work: "bg-warning/20 text-warning",
     learning: "bg-primary/20 text-primary",
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <Skeleton className="h-16 w-64" />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -85,9 +105,6 @@ export default function Categories() {
                       </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon-sm">
-                    <Plus className="w-4 h-4" />
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
-import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInDays } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import type { Category } from '@/types/habit';
 
 export interface Habit {
@@ -235,11 +235,75 @@ export function useHabitsData() {
       const dayCompletions = completions.filter(c => c.completed_date === dateStr);
       return {
         date: dateStr,
-        day: format(day, 'EEE'),
+        dayName: format(day, 'EEE'),
         completed: dayCompletions.length,
-        total: habits.length
+        total: habits.length,
+        percentage: habits.length > 0 ? Math.round((dayCompletions.length / habits.length) * 100) : 0
       };
     });
+  };
+
+  // Get monthly data
+  const getMonthlyData = () => {
+    const monthStart = startOfMonth(new Date());
+    const monthEnd = endOfMonth(new Date());
+    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    
+    return days.map(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const dayCompletions = completions.filter(c => c.completed_date === dateStr);
+      
+      return {
+        date: dateStr,
+        day: day.getDate(),
+        completed: dayCompletions.length,
+        total: habits.length,
+        percentage: habits.length > 0 ? Math.round((dayCompletions.length / habits.length) * 100) : 0
+      };
+    });
+  };
+
+  // Get total streak (sum of all habit streaks)
+  const getTotalStreak = () => {
+    return habits.reduce((acc, h) => acc + getStreak(h.id), 0);
+  };
+
+  // Get best streak for a habit
+  const getBestStreak = (habitId: string): number => {
+    const habitCompletions = completions
+      .filter(c => c.habit_id === habitId)
+      .map(c => c.completed_date)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    
+    if (habitCompletions.length === 0) return 0;
+    
+    let bestStreak = 1;
+    let currentStreak = 1;
+    
+    for (let i = 1; i < habitCompletions.length; i++) {
+      const prevDate = new Date(habitCompletions[i - 1]);
+      const currDate = new Date(habitCompletions[i]);
+      const daysDiff = differenceInDays(currDate, prevDate);
+      
+      if (daysDiff === 1) {
+        currentStreak++;
+        bestStreak = Math.max(bestStreak, currentStreak);
+      } else {
+        currentStreak = 1;
+      }
+    }
+    
+    return bestStreak;
+  };
+
+  // Get category completions for a given month
+  const getCategoryCompletions = (category: Category, month: Date) => {
+    const monthStr = format(month, 'yyyy-MM');
+    const catHabits = habits.filter(h => h.category === category);
+    return completions.filter(c => 
+      catHabits.some(h => h.id === c.habit_id) && 
+      c.completed_date.startsWith(monthStr)
+    ).length;
   };
 
   // Get completion history for calendar (last 90 days)
@@ -262,13 +326,18 @@ export function useHabitsData() {
     completions,
     isLoading: habitsLoading || completionsLoading,
     addHabit: addHabit.mutate,
+    addHabitAsync: addHabit.mutateAsync,
     deleteHabit: deleteHabit.mutate,
     toggleCompletion: toggleCompletion.mutate,
     isToggling: toggleCompletion.isPending,
     getStreak,
+    getBestStreak,
     isCompleted,
     getTodayProgress,
     getWeeklyData,
+    getMonthlyData,
+    getTotalStreak,
+    getCategoryCompletions,
     getCompletionHistory
   };
 }

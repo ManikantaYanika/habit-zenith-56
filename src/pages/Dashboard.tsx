@@ -85,7 +85,7 @@ export default function Dashboard() {
 
   const chartData = weeklyData.map(d => ({
     date: d.date,
-    dayName: d.day,
+    dayName: d.dayName,
     completed: d.completed,
     total: d.total,
     percentage: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0

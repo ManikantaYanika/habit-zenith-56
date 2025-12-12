@@ -1,40 +1,55 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarHeatmap } from "@/components/habits/CalendarHeatmap";
 import { CategoryBadge } from "@/components/habits/CategoryBadge";
-import { useHabits } from "@/hooks/useHabits";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { useHabitsData } from "@/hooks/useHabitsData";
+import { format } from "date-fns";
 import { Calendar, TrendingUp, Target, BarChart3 } from "lucide-react";
 import { Category } from "@/types/habit";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from "recharts";
+import { ResponsiveContainer, Tooltip, Area, AreaChart, XAxis, YAxis } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Monthly() {
-  const { habits, getMonthlyData } = useHabits();
+  const { habits, getMonthlyData, getCategoryCompletions, isLoading } = useHabitsData();
   const monthlyData = getMonthlyData();
   
   const monthName = format(new Date(), "MMMM yyyy");
   
-  const monthlyAverage = Math.round(
-    monthlyData.reduce((acc, d) => acc + d.percentage, 0) / monthlyData.length
-  );
+  const monthlyAverage = monthlyData.length > 0 
+    ? Math.round(monthlyData.reduce((acc, d) => acc + d.percentage, 0) / monthlyData.length)
+    : 0;
 
   const perfectDays = monthlyData.filter(d => d.percentage === 100).length;
   const totalCompleted = monthlyData.reduce((acc, d) => acc + d.completed, 0);
 
   const categories = ['health', 'finance', 'work', 'learning'] as Category[];
-  const categoryContribution = categories.map(cat => {
-    const catHabits = habits.filter(h => h.category === cat);
-    const totalCompletions = catHabits.reduce(
-      (acc, h) => acc + h.completedDates.filter(d => d.startsWith(format(new Date(), 'yyyy-MM'))).length, 
-      0
-    );
-    return { category: cat, completions: totalCompletions };
-  }).filter(c => c.completions > 0).sort((a, b) => b.completions - a.completions);
+  const categoryContribution = categories.map(cat => ({
+    category: cat,
+    completions: getCategoryCompletions(cat, new Date())
+  })).filter(c => c.completions > 0).sort((a, b) => b.completions - a.completions);
 
   // Prepare trend data for line chart
   const trendData = monthlyData.slice(-14).map(d => ({
     date: d.day.toString(),
     percentage: d.percentage,
   }));
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <Skeleton className="h-16 w-64" />
+        <div className="grid gap-4 sm:grid-cols-4">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <Skeleton className="h-96" />
+          <Skeleton className="h-64" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -157,31 +172,37 @@ export default function Monthly() {
               <CardTitle className="text-base">Category Contributions</CardTitle>
             </CardHeader>
             <CardContent className="p-0 space-y-4">
-              {categoryContribution.map(({ category, completions }) => {
-                const maxCompletions = categoryContribution[0]?.completions || 1;
-                const percentage = (completions / maxCompletions) * 100;
-                
-                return (
-                  <div key={category} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <CategoryBadge category={category} size="sm" />
-                      <span className="text-sm font-mono">{completions}</span>
+              {categoryContribution.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No completions this month yet.
+                </p>
+              ) : (
+                categoryContribution.map(({ category, completions }) => {
+                  const maxCompletions = categoryContribution[0]?.completions || 1;
+                  const percentage = (completions / maxCompletions) * 100;
+                  
+                  return (
+                    <div key={category} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <CategoryBadge category={category} size="sm" />
+                        <span className="text-sm font-mono">{completions}</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ 
+                            width: `${percentage}%`,
+                            backgroundColor: category === 'health' ? 'hsl(var(--success))' :
+                              category === 'finance' ? 'hsl(var(--chart-4))' :
+                              category === 'work' ? 'hsl(var(--warning))' :
+                              'hsl(var(--primary))'
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ 
-                          width: `${percentage}%`,
-                          backgroundColor: category === 'health' ? 'hsl(var(--success))' :
-                            category === 'finance' ? 'hsl(var(--chart-4))' :
-                            category === 'work' ? 'hsl(var(--warning))' :
-                            'hsl(var(--primary))'
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </CardContent>
           </Card>
 
@@ -191,18 +212,24 @@ export default function Monthly() {
               <CardTitle className="text-base">Monthly Insights</CardTitle>
             </CardHeader>
             <CardContent className="p-0 space-y-3 text-sm">
-              <div className="flex items-start gap-2">
-                <span className="text-success">✓</span>
-                <p>Best day: {monthlyData.reduce((best, d) => d.percentage > best.percentage ? d : best, monthlyData[0])?.day}th with {Math.max(...monthlyData.map(d => d.percentage))}% completion</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-primary">📈</span>
-                <p>You're {monthlyAverage >= 70 ? 'on track' : 'building momentum'} this month!</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-warning">🔥</span>
-                <p>{perfectDays} perfect days so far</p>
-              </div>
+              {monthlyData.length > 0 ? (
+                <>
+                  <div className="flex items-start gap-2">
+                    <span className="text-success">✓</span>
+                    <p>Best day: {monthlyData.reduce((best, d) => d.percentage > best.percentage ? d : best, monthlyData[0])?.day}th with {Math.max(...monthlyData.map(d => d.percentage))}% completion</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">📈</span>
+                    <p>You're {monthlyAverage >= 70 ? 'on track' : 'building momentum'} this month!</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-warning">🔥</span>
+                    <p>{perfectDays} perfect days so far</p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Start tracking habits to see insights!</p>
+              )}
             </CardContent>
           </Card>
         </div>

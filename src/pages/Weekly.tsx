@@ -2,18 +2,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeeklyChart } from "@/components/habits/WeeklyChart";
 import { StreakCounter } from "@/components/habits/StreakCounter";
 import { CategoryBadge } from "@/components/habits/CategoryBadge";
-import { useHabits } from "@/hooks/useHabits";
+import { useHabitsData } from "@/hooks/useHabitsData";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Award, Zap } from "lucide-react";
 import { Category } from "@/types/habit";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Weekly() {
-  const { habits, getWeeklyData, getTotalStreak } = useHabits();
+  const { habits, getWeeklyData, getTotalStreak, getStreak, isLoading } = useHabitsData();
   const weeklyData = getWeeklyData();
   
-  const weeklyAverage = Math.round(
-    weeklyData.reduce((acc, d) => acc + d.percentage, 0) / weeklyData.length
-  );
+  const weeklyAverage = weeklyData.length > 0 
+    ? Math.round(weeklyData.reduce((acc, d) => acc + d.percentage, 0) / weeklyData.length)
+    : 0;
 
   const totalCompleted = weeklyData.reduce((acc, d) => acc + d.completed, 0);
   const totalPossible = weeklyData.reduce((acc, d) => acc + d.total, 0);
@@ -21,14 +22,34 @@ export default function Weekly() {
   const categories = ['health', 'finance', 'work', 'learning'] as Category[];
   const categoryPerformance = categories.map(cat => {
     const catHabits = habits.filter(h => h.category === cat);
-    const totalStreak = catHabits.reduce((acc, h) => acc + h.streak, 0);
+    const totalStreak = catHabits.reduce((acc, h) => acc + getStreak(h.id), 0);
     const avgStreak = catHabits.length > 0 ? Math.round(totalStreak / catHabits.length) : 0;
     return { category: cat, count: catHabits.length, avgStreak };
   }).filter(c => c.count > 0);
 
   const topHabits = [...habits]
+    .map(h => ({ ...h, streak: getStreak(h.id) }))
     .sort((a, b) => b.streak - a.streak)
     .slice(0, 5);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <Skeleton className="h-96" />
+          <div className="space-y-6">
+            <Skeleton className="h-48" />
+            <Skeleton className="h-32" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -93,7 +114,7 @@ export default function Weekly() {
               <CardTitle className="text-base">Daily Breakdown</CardTitle>
             </CardHeader>
             <CardContent className="p-0 space-y-4">
-              {weeklyData.map((day, index) => (
+              {weeklyData.map((day) => (
                 <div key={day.date} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{day.dayName}</span>
@@ -122,22 +143,28 @@ export default function Weekly() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 space-y-3">
-              {topHabits.map((habit, index) => (
-                <div 
-                  key={habit.id} 
-                  className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
-                >
-                  <span className="text-lg font-bold text-muted-foreground font-mono w-6">
-                    #{index + 1}
-                  </span>
-                  <span className="text-xl">{habit.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{habit.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{habit.category}</p>
+              {topHabits.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No habits yet. Add some to get started!
+                </p>
+              ) : (
+                topHabits.map((habit, index) => (
+                  <div 
+                    key={habit.id} 
+                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
+                  >
+                    <span className="text-lg font-bold text-muted-foreground font-mono w-6">
+                      #{index + 1}
+                    </span>
+                    <span className="text-xl">{habit.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{habit.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{habit.category}</p>
+                    </div>
+                    <StreakCounter streak={habit.streak} size="sm" showLabel={false} />
                   </div>
-                  <StreakCounter streak={habit.streak} size="sm" showLabel={false} />
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
 
@@ -147,19 +174,25 @@ export default function Weekly() {
               <CardTitle className="text-base">By Category</CardTitle>
             </CardHeader>
             <CardContent className="p-0 space-y-4">
-              {categoryPerformance.map(({ category, count, avgStreak }) => (
-                <div key={category} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CategoryBadge category={category} size="sm" />
-                    <span className="text-xs text-muted-foreground">
-                      {count} habit{count !== 1 ? 's' : ''}
+              {categoryPerformance.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No habits in any category yet.
+                </p>
+              ) : (
+                categoryPerformance.map(({ category, count, avgStreak }) => (
+                  <div key={category} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CategoryBadge category={category} size="sm" />
+                      <span className="text-xs text-muted-foreground">
+                        {count} habit{count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <span className="text-sm font-mono">
+                      avg 🔥 {avgStreak}
                     </span>
                   </div>
-                  <span className="text-sm font-mono">
-                    avg 🔥 {avgStreak}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

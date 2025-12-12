@@ -1,42 +1,37 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Bell, Clock, Plus, Trash2, Calendar, Smartphone } from "lucide-react";
+import { Bell, Clock, Plus, Trash2, Calendar, Smartphone, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Reminder {
-  id: string;
-  time: string;
-  days: number[];
-  enabled: boolean;
-  label: string;
-}
+import { useReminders } from "@/hooks/useReminders";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Reminders() {
-  const [reminders, setReminders] = useState<Reminder[]>([
-    { id: '1', time: '08:00', days: [1, 2, 3, 4, 5], enabled: true, label: 'Morning habits' },
-    { id: '2', time: '21:00', days: [0, 1, 2, 3, 4, 5, 6], enabled: true, label: 'Evening review' },
-  ]);
+  const { reminders, isLoading, addReminder, updateReminder, deleteReminder, isAdding, isDeleting } = useReminders();
+  const { toast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
   const [newReminder, setNewReminder] = useState({
     time: '09:00',
-    days: [1, 2, 3, 4, 5],
+    days: [1, 2, 3, 4, 5] as number[],
     label: '',
   });
 
-  const toggleReminder = (id: string) => {
-    setReminders(prev => prev.map(r => 
-      r.id === id ? { ...r, enabled: !r.enabled } : r
-    ));
+  const toggleReminderEnabled = (id: string, currentEnabled: boolean) => {
+    updateReminder({ id, updates: { enabled: !currentEnabled } });
   };
 
-  const deleteReminder = (id: string) => {
-    setReminders(prev => prev.filter(r => r.id !== id));
+  const handleDeleteReminder = (id: string) => {
+    deleteReminder(id);
+    toast({
+      title: "Reminder deleted",
+      description: "The reminder has been removed",
+    });
   };
 
   const toggleDay = (day: number) => {
@@ -48,20 +43,35 @@ export default function Reminders() {
     }));
   };
 
-  const addReminder = () => {
+  const handleAddReminder = () => {
     if (!newReminder.label.trim()) return;
     
-    setReminders(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        ...newReminder,
-        enabled: true,
-      },
-    ]);
+    addReminder({
+      time: newReminder.time,
+      days: newReminder.days,
+    });
+    
     setNewReminder({ time: '09:00', days: [1, 2, 3, 4, 5], label: '' });
     setShowAdd(false);
+    
+    toast({
+      title: "Reminder created",
+      description: "Your reminder has been saved",
+    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <Skeleton className="h-16 w-64" />
+        <Skeleton className="h-24" />
+        <div className="space-y-3">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -158,10 +168,11 @@ export default function Reminders() {
               </Button>
               <Button 
                 variant="gradient" 
-                onClick={addReminder} 
+                onClick={handleAddReminder} 
                 className="flex-1"
-                disabled={!newReminder.label.trim() || newReminder.days.length === 0}
+                disabled={!newReminder.label.trim() || newReminder.days.length === 0 || isAdding}
               >
+                {isAdding ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Save Reminder
               </Button>
             </div>
@@ -200,7 +211,7 @@ export default function Reminders() {
                     <span className="text-2xl font-mono font-semibold">
                       {reminder.time}
                     </span>
-                    <span className="text-sm font-medium">{reminder.label}</span>
+                    <span className="text-sm font-medium">Daily Reminder</span>
                   </div>
                   <div className="flex gap-1 mt-2">
                     {weekDays.map((day, index) => (
@@ -220,13 +231,14 @@ export default function Reminders() {
                 </div>
                 <Switch
                   checked={reminder.enabled}
-                  onCheckedChange={() => toggleReminder(reminder.id)}
+                  onCheckedChange={() => toggleReminderEnabled(reminder.id, reminder.enabled)}
                 />
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  onClick={() => deleteReminder(reminder.id)}
+                  onClick={() => handleDeleteReminder(reminder.id)}
                   className="text-destructive hover:text-destructive"
+                  disabled={isDeleting}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

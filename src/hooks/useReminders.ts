@@ -87,6 +87,9 @@ export function useReminders() {
     isLoading,
     addReminder: addReminder.mutate,
     updateReminder: updateReminder.mutate,
-    deleteReminder: deleteReminder.mutate
+    deleteReminder: deleteReminder.mutate,
+    isAdding: addReminder.isPending,
+    isUpdating: updateReminder.isPending,
+    isDeleting: deleteReminder.isPending
   };
 }
