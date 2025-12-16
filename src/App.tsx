@@ -33,7 +33,11 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Index />
+        </ProtectedRoute>
+      } />
       <Route path="/auth" element={<Auth />} />
       <Route path="/daily" element={
         <ProtectedRoute>
